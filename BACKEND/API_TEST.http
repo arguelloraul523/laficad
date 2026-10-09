@@ -1,0 +1,724 @@
+##############################################
+# API Sistema de Gestión del Laboratorio (SENA)
+# Requiere la extensión "REST Client" en VS Code,
+# o copia cada petición en Postman / Thunder Client.
+##############################################
+
+@base = http://localhost:3000/api
+@token = pega_aqui_el_token_del_login
+
+### 1. Estado de la API
+GET http://localhost:3000/
+
+### 2. Login (devuelve el token, cópialo en @token)
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "admin@laboratorio.com",
+  "contrasena": "Admin1234"
+}
+
+### 3. Registrar usuario
+# El servidor IGNORA "rol"/"tipoUsuario": todo registro nace Cliente/EXTERNO (RF-02, regla #12).
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "nombres": "Juan",
+  "apellidos": "Pérez",
+  "correo": "juan@correo.com",
+  "contrasena": "Clave123",
+  "tipoDocumento": "CC",
+  "numeroDocumento": "123456789",
+  "telefono": "3001112233"
+}
+
+### 4. Perfil del usuario autenticado
+GET {{base}}/auth/perfil
+Authorization: Bearer {{token}}
+
+### 5. Listar usuarios
+GET {{base}}/usuarios
+Authorization: Bearer {{token}}
+
+### 6. Crear categoría de análisis
+POST {{base}}/catalogo/categorias
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombre": "Microbiología",
+  "descripcion": "Análisis microbiológicos"
+}
+
+### 7. Crear tipo de muestra
+POST {{base}}/catalogo/tipos-muestra
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombre": "Agua",
+  "descripcion": "Muestras de agua"
+}
+
+### 8. Crear examen
+POST {{base}}/catalogo/examenes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "categoria": "<id_categoria>",
+  "tipoMuestra": "<id_tipo_muestra>",
+  "nombre": "pH y conductividad",
+  "precio": 125000,
+  "tiempoRespuestaDias": 5,
+  "cantidadRequerida": 500,
+  "unidadMedida": "ml",
+  "tipoEnvase": "Frasco plástico",
+  "requiereTemperatura": false,
+  "activo": true
+}
+
+### 9. Listar exámenes
+GET {{base}}/catalogo/examenes
+Authorization: Bearer {{token}}
+
+### 10. Crear solicitud
+POST {{base}}/solicitudes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "usuario": "<id_usuario>",
+  "tipoMuestra": "<id_tipo_muestra>",
+  "descripcionMuestra": "Agua de pozo",
+  "origen": "Rural",
+  "cantidadEstimada": "2 litros"
+}
+
+### 11. Listar solicitudes
+GET {{base}}/solicitudes
+Authorization: Bearer {{token}}
+
+### 12. Crear cotización
+POST {{base}}/cotizaciones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "solicitud": "<id_solicitud>",
+  "valorTotal": 250000,
+  "exonerada": false,
+  "detalles": [
+    { "examen": "<id_examen>", "cantidadMuestras": 2, "precioUnitario": 125000 }
+  ]
+}
+
+### 13. Listar pagos
+GET {{base}}/pagos
+Authorization: Bearer {{token}}
+
+### 14. Verificar pago
+PUT {{base}}/pagos/<id_pago>/verificar
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "aprobar": true,
+  "observacion": "Pago verificado correctamente"
+}
+
+### 15. Cambiar etapa de una muestra
+PUT {{base}}/muestras/<id_muestra>/cambiar-etapa
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "etapaActual": "Análisis"
+}
+
+### 16. Listar informes
+GET {{base}}/informes
+Authorization: Bearer {{token}}
+
+### 17. Listar inconformidades
+GET {{base}}/inconformidades
+Authorization: Bearer {{token}}
+
+### 18. Crear cupón de pago (código CUP-AAAA-NNNN consecutivo)
+POST {{base}}/pagos/cupones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "cotizacion": "<id_cotizacion>",
+  "fechaLimitePago": "2026-12-31",
+  "cuentas": ["<id_cuenta_recaudo>"]
+}
+
+### 19. Crear muestra (código A1/A2-AAAA-NNNN y prioridad automáticos)
+# El sistema deriva el prefijo/del tipoUsuario de la solicitud:
+#   tipoUsuario SENA  -> codigoMuestra "A1-AAAA-NNNN" y prioridad "A1"
+#   tipoUsuario EXTERNO -> codigoMuestra "A2-AAAA-NNNN" y prioridad "A2"
+POST {{base}}/muestras
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "solicitud": "<id_solicitud>",
+  "recepcionista": "<id_recepcionista>",
+  "entregadoPor": "Juan Pérez",
+  "fechaHoraEntrega": "2026-10-08T10:00:00.000Z",
+  "cantidadRecibida": 500,
+  "unidadMedida": "ml",
+  "estadoEmpaque": "Buen estado"
+}
+
+### 20. Listar historial de muestras (solo lectura, RF-24)
+GET {{base}}/muestras/historial
+Authorization: Bearer {{token}}
+
+### 21. Inmutabilidad del historial (RF-24)
+# Estas rutas NO existen (no deben existir). Deben devolver 404:
+#   PUT    {{base}}/muestras/historial/<id>
+#   DELETE {{base}}/muestras/historial/<id>
+
+### 22. Cotización exonerada para usuario SENA (RF-02, RF-06)
+# Con una solicitud cuyo usuario tenga "tipoUsuario": "SENA",
+# la respuesta debe traer "exonerada": true y "valorTotal": 0
+# sin importar el valorTotal enviado.
+POST {{base}}/cotizaciones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "solicitud": "<id_solicitud_de_usuario_sena>",
+  "valorTotal": 250000,
+  "detalles": [
+    { "examen": "<id_examen>", "cantidadMuestras": 1, "precioUnitario": 250000 }
+  ]
+}
+
+### 23. Transición de estado INVÁLIDA -> 409 (criterio de cierre)
+# Saltar de "Pre-solicitud" a "Finalizada" no está permitido: debe responder 409.
+PUT {{base}}/solicitudes/<id_solicitud>
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "estado": "Finalizada"
+}
+
+### 23b. Transición de estado VÁLIDA -> 200
+PUT {{base}}/solicitudes/<id_solicitud>
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "estado": "Cotizada"
+}
+
+### 24. Whitelist: el body no puede inyectar rol/estado (regla #12)
+# Enviar "estado" sin una transición válida (o "rol"/"tipoUsuario") NO debe cambiar nada.
+PUT {{base}}/solicitudes/<id_solicitud>
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "descripcionMuestra": "Actualizada",
+  "estado": "Pagada",
+  "rol": "<id_rol_administrador>",
+  "tipoUsuario": "SENA"
+}
+
+### 25. Propiedad: un Cliente NO puede leer un recurso ajeno -> 403
+# Autenticado como Cliente, consultar una solicitud de OTRO usuario.
+GET {{base}}/solicitudes/<id_solicitud_de_otro_usuario>
+Authorization: Bearer {{token_cliente}}
+
+### 25b. Propiedad en listado: el Cliente solo ve lo suyo
+GET {{base}}/solicitudes
+Authorization: Bearer {{token_cliente}}
+
+### 26. Multirrol: cambiar el rol activo (solo roles asignados)
+# Con un usuario que tenga roles [Recepcionista, Analista].
+POST {{base}}/auth/cambiar-rol
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "rol": "<id_rol_asignado>"
+}
+
+### 26b. Cambiar a un rol NO asignado -> 403
+POST {{base}}/auth/cambiar-rol
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "rol": "<id_rol_no_asignado>"
+}
+
+### 27. Rate limit en /auth (20 intentos / 15 min por IP)
+# Repetir el login más de 20 veces debe devolver 429.
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "admin@laboratorio.com",
+  "contrasena": "clave-incorrecta"
+}
+
+### 28. Verificar pago: rechazar exige observación (RF-09)
+# Sin "observacion" al rechazar debe responder 400.
+PUT {{base}}/pagos/<id_pago>/verificar
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "aprobar": false
+}
+
+### 28b. Verificar pago ya verificado -> 409
+PUT {{base}}/pagos/<id_pago>/verificar
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "aprobar": true
+}
+
+### 29. Catálogo público SIN token con filtros y paginación (RF-05)
+# Sin "Authorization". Respuesta: { ok, total, pagina, limite, totalPaginas, data }
+GET {{base}}/catalogo/examenes?q=sulfato&categoria=<id_categoria>&tipoMuestra=<id_tipo_muestra>&pagina=1&limite=5&orden=precio&dir=asc
+
+### 29b. Catálogo público: categorías y tipos de muestra (sin token)
+GET {{base}}/catalogo/categorias?pagina=1&limite=10
+GET {{base}}/catalogo/tipos-muestra?q=agua&pagina=1&limite=10
+
+### 30. Sugerencias de análisis (RF-16) - requiere token
+# Devuelve exámenes con puntaje y razones: "tipo de muestra", "categoría", "palabra clave: X"
+POST {{base}}/solicitudes/sugerencias
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "tipoMuestra": "<id_tipo_muestra>",
+  "categoria": "<id_categoria>",
+  "descripcionMuestra": "Agua con olor y sulfatos",
+  "limite": 10
+}
+
+### 31. Crear pre-solicitud con la lista AJUSTADA por el cliente
+# Respuesta: 201 con "data.codigoPresolicitud" (PRE-AAAA-NNNN), "data.examenes"
+# (cada uno con origen y precioUnitario del servidor) y "sugerencias".
+POST {{base}}/solicitudes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "tipoMuestra": "<id_tipo_muestra>",
+  "descripcionMuestra": "Agua de pozo con olor",
+  "origen": "Rural",
+  "cantidadEstimada": "2 litros",
+  "examenes": ["<id_examen_1>", "<id_examen_2>"]
+}
+
+### 31b. Respuesta esperada (criterio de cierre)
+# {
+#   "ok": true,
+#   "data": {
+#     "codigoPresolicitud": "PRE-2026-0001",
+#     "examenes": [
+#       { "examen": "<id_examen_1>", "origen": "Sugerido", "precioUnitario": 125000 },
+#       { "examen": "<id_examen_2>", "origen": "Manual", "precioUnitario": 80000 }
+#     ]
+#   },
+#   "sugerencias": [ { "examen": "<id>", "nombre": "...", "precio": 125000, "puntaje": 5, "razones": ["tipo de muestra", "palabra clave: sulfato"] } ]
+# }
+
+### 32. Crear pre-solicitud SIN lista -> examenes vacío (decisión 2026-10-09)
+# "data.examenes" debe ser [] pero "sugerencias" igual se devuelve.
+POST {{base}}/solicitudes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "tipoMuestra": "<id_tipo_muestra>",
+  "descripcionMuestra": "Agua de pozo",
+  "origen": "Rural",
+  "cantidadEstimada": "1 litro"
+}
+
+### 33. Examen inexistente o inactivo -> 400
+POST {{base}}/solicitudes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "tipoMuestra": "<id_tipo_muestra>",
+  "descripcionMuestra": "Agua de pozo",
+  "origen": "Rural",
+  "cantidadEstimada": "1 litro",
+  "examenes": ["507f1f77bcf86cd799439011"]
+}
+
+### 34. Crear cotización - el precio lo calcula el SERVIDOR (RF-06)
+# Token de Administrador o Recepcionista. No enviar valorTotal/exonerada/detalles (whitelist).
+# Respuesta: 201 con "data.detalles[].precioUnitario" (snapshot), "data.valorTotal" y "data.archivoPdf".
+POST {{base}}/cotizaciones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "solicitud": "<id_solicitud>",
+  "examenes": [
+    { "examen": "<id_examen_1>", "cantidadMuestras": 2 },
+    { "examen": "<id_examen_2>", "cantidadMuestras": 1 }
+  ]
+}
+
+### 34b. Cotizar una solicitud que no esta en Pre-solicitud -> 409
+POST {{base}}/cotizaciones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "solicitud": "<id_solicitud_ya_cotizada>"
+}
+
+### 35. Cotización exonerada SENA -> valorTotal 0 (RF-02, RF-06)
+# El usuario dueño de la solicitud es SENA verificado (tipoUsuario SENA o VerificacionSena aprobada).
+POST {{base}}/cotizaciones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "solicitud": "<id_solicitud_sena>",
+  "examenes": [{ "examen": "<id_examen_1>", "cantidadMuestras": 3 }]
+}
+
+### 36. Descargar el PDF - solo dueño o Administrador
+GET {{base}}/cotizaciones/<id_cotizacion>/pdf
+Authorization: Bearer {{token}}
+
+### 36b. PDF con token de otro cliente -> 403
+GET {{base}}/cotizaciones/<id_cotizacion>/pdf
+Authorization: Bearer {{token_otro_cliente}}
+
+### 37. Aceptar cotización con firma digital (RF-13)
+# Respuesta: 200 con "autorizacion" (fechaHoraFirma + ip), "cupon" (emitido por el servidor)
+# y "solicitud.estado" = "Pendiente de pago".
+POST {{base}}/cotizaciones/<id_cotizacion>/aceptar
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombreFirmante": "Maria Perez",
+  "documentoFirmante": "1020304050",
+  "firmaImagen": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "aceptaTerminos": true
+}
+
+### 37b. Aceptar cotización EXONERADA -> solicitud Pagada y cupon null
+# Respuesta: "data.exonerada": true, "cupon": null, "solicitud.estado": "Pagada".
+POST {{base}}/cotizaciones/<id_cotizacion_sena>/aceptar
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombreFirmante": "Carlos Gomez",
+  "documentoFirmante": "111111111",
+  "firmaImagen": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "aceptaTerminos": true
+}
+
+### 38. Aceptar sin aceptar terminos -> 400
+POST {{base}}/cotizaciones/<id_cotizacion>/aceptar
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombreFirmante": "Maria Perez",
+  "documentoFirmante": "1020304050",
+  "firmaImagen": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "aceptaTerminos": false
+}
+
+### 38b. Aceptar dos veces -> 409 (cotizacion Aceptada -> Aceptada)
+POST {{base}}/cotizaciones/<id_cotizacion>/aceptar
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombreFirmante": "Maria Perez",
+  "documentoFirmante": "1020304050",
+  "firmaImagen": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "aceptaTerminos": true
+}
+
+### 39. Pedir un segundo cupón para la misma cotizacion -> 409
+POST {{base}}/pagos/cupones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "cotizacion": "<id_cotizacion_aceptada>" }
+
+### 39b. Cupon de una cotizacion NO aceptada -> 409
+POST {{base}}/pagos/cupones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "cotizacion": "<id_cotizacion_enviada>" }
+
+### 39c. Cupon de una cotizacion exonerada (valorTotal 0) -> 400
+POST {{base}}/pagos/cupones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "cotizacion": "<id_cotizacion_exonerada>" }
+
+### 40. Recibir muestra con solicitud SIN pagar -> 409 (RF-09)
+POST {{base}}/muestras
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "solicitud": "<id_solicitud_pendiente_de_pago>",
+  "recepcionista": "<id_usuario_recepcionista>",
+  "observaciones": "Muestra envasada al 50%"
+}
+
+### 40b. Recibir muestra con solicitud PAGADA o EXONERADA -> 201 (RF-09)
+# Debe devolver "codigoMuestra" A2-AAAA-NNNN (externo) o A1-AAAA-NNNN (SENA) y "prioridad".
+POST {{base}}/muestras
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "solicitud": "<id_solicitud_pagada>",
+  "recepcionista": "<id_usuario_recepcionista>",
+  "observaciones": "Muestra envasada al 50%"
+}
+
+### 41. Verificacion SENA con correo NO institucional -> 400 (regla 2026-10-09)
+# Esperado: 400 "Solo se aceptan correos @sena.edu.co"
+POST {{base}}/usuarios/verificaciones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "correoInstitucional": "ana@gmail.com",
+  "numeroFicha": "2458796",
+  "archivoSoporte": "soporte.png"
+}
+
+### 41b. Mismo caso con subdominio o sufijo falso -> 400
+# "ana@virtual.sena.edu.co"  -> 400 (no se admiten subdominios)
+# "ana@co.sena.edu.co"       -> 400
+# "ana@sena.edu.co.evil.com" -> 400
+# "a@evil.com@sena.edu.co"   -> 400 (correo inválido)
+# "ANA@SENA.EDU.CO"          -> 201 (se normaliza a minusculas)
+POST {{base}}/usuarios/verificaciones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "correoInstitucional": "ana@virtual.sena.edu.co",
+  "numeroFicha": "2458796",
+  "archivoSoporte": "soporte.png"
+}
+
+### 41c. Crear verificacion valida -> 201 (multipart: el modelo exige archivoSoporte)
+# Nota: el validador corre DESPUES de multer; si se envia multipart, "correoInstitucional"
+# llega como campo de texto. Reemplaza < {{soporte.png}} por una imagen real.
+POST {{base}}/usuarios/verificaciones
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=----SENA
+
+------SENA
+Content-Disposition: form-data; name="correoInstitucional"
+
+aprendiz@sena.edu.co
+------SENA
+Content-Disposition: form-data; name="numeroFicha"
+
+2458796
+------SENA
+Content-Disposition: form-data; name="archivoSoporte"; filename="soporte.png"
+Content-Type: image/png
+
+< {{soporte.png}}
+------SENA--
+
+### 42. Aprobar con correo heredado no valido -> 400 / rechazar -> 200
+# Si "correoInstitucional" no termina en @sena.edu.co:
+#   PUT /aprobar -> 400 "El correo institucional debe terminar en @sena.edu.co (...)"
+#   PUT /rechazar -> 200 (siempre permitido)
+PUT {{base}}/usuarios/verificaciones/<id_verificacion>/aprobar
+Authorization: Bearer {{token}}
+
+### 42b. Rechazo permitido aunque el correo no cumpla
+PUT {{base}}/usuarios/verificaciones/<id_verificacion>/rechazar
+Authorization: Bearer {{token}}
+
+### 43. Registrar pago (consignacion/transferencia) SIN comprobante -> 400
+# El comprobante es obligatorio salvo para "Efectivo en caja SENA" (RF-08).
+POST {{base}}/pagos
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "cupon": "<id_cupon>",
+  "metodo": "Consignación bancaria",
+  "fechaPagoReportada": "2026-10-09",
+  "valorReportado": 250000
+}
+
+### 43b. Registrar pago en EFECTIVO sin numero de recibo -> 400
+POST {{base}}/pagos
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "cupon": "<id_cupon>",
+  "metodo": "Efectivo en caja SENA",
+  "fechaPagoReportada": "2026-10-09",
+  "valorReportado": 250000
+}
+
+### 43c. Registrar pago en efectivo CON recibo -> 201 (multipart)
+# Esperado: 201 con estado "Pendiente de verificación", fechaCarga y historial[0].
+# El servidor ignora "estado"/"historial" si llegaran en el body (whitelist).
+POST {{base}}/pagos
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=----PAGO
+
+------PAGO
+Content-Disposition: form-data; name="cupon"
+
+<id_cupon>
+------PAGO
+Content-Disposition: form-data; name="metodo"
+
+Efectivo en caja SENA
+------PAGO
+Content-Disposition: form-data; name="numeroReciboCaja"
+
+RC-000123
+------PAGO
+Content-Disposition: form-data; name="fechaPagoReportada"
+
+2026-10-09
+------PAGO
+Content-Disposition: form-data; name="valorReportado"
+
+250000
+------PAGO
+Content-Disposition: form-data; name="estado"
+
+Pagado
+------PAGO--
+
+### 43d. Registrar pago con COMPROBANTE (consignacion) -> 201 (multipart)
+# Reemplaza < {{comprobante.pdf}} por un archivo real (JPG/PNG/PDF, máx. 5 MB).
+POST {{base}}/pagos
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=----PAGO
+
+------PAGO
+Content-Disposition: form-data; name="cupon"
+
+<id_cupon>
+------PAGO
+Content-Disposition: form-data; name="metodo"
+
+Transferencia electrónica
+------PAGO
+Content-Disposition: form-data; name="fechaPagoReportada"
+
+2026-10-09
+------PAGO
+Content-Disposition: form-data; name="valorReportado"
+
+250000
+------PAGO
+Content-Disposition: form-data; name="archivoComprobante"; filename="comprobante.pdf"
+Content-Type: application/pdf
+
+< {{comprobante.pdf}}
+------PAGO--
+
+### 43e. Registrar pago sobre un cupón VENCIDO -> 409
+# "El cupón de pago venció el AAAA-MM-DD; ya no se admiten nuevos reportes"
+POST {{base}}/pagos
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "cupon": "<id_cupon_vencido>",
+  "metodo": "Consignación bancaria",
+  "fechaPagoReportada": "2026-10-09",
+  "valorReportado": 250000,
+  "archivoComprobante": "comprobante.pdf"
+}
+
+### 43f. Registrar pago sobre un cupón AJENO (Cliente) -> 403
+# Con el token de un Cliente distinto del dueño de la cotización.
+POST {{base}}/pagos
+Authorization: Bearer {{token_cliente}}
+Content-Type: application/json
+
+{
+  "cupon": "<id_cupon_de_otro_cliente>",
+  "metodo": "Efectivo en caja SENA",
+  "numeroReciboCaja": "RC-9",
+  "fechaPagoReportada": "2026-10-09",
+  "valorReportado": 250000
+}
+
+### 43g. Registrar pago siendo ANALISTA -> 403
+# POST /pagos solo admite Administrador, Recepcionista y Cliente.
+
+### 44. Mis pagos (Cliente) -> 200 con estado e historial - solo los suyos
+GET {{base}}/pagos/mis-pagos
+Authorization: Bearer {{token_cliente}}
+
+### 45. Bandeja de pendientes (solo Admin/Recepcionista) -> 200
+# Orden: "fechaCarga" ascendente (mas antiguo primero). Respuesta paginada:
+# { ok, total, pagina, limite, totalPaginas, data }
+GET {{base}}/pagos/pendientes?pagina=1&limite=10
+Authorization: Bearer {{token}}
+
+### 45b. Bandeja con token de Cliente o Analista -> 403
+GET {{base}}/pagos/pendientes
+Authorization: Bearer {{token_cliente}}
+
+### 46. Aprobar pago -> 200: Solicitud "Pagada" + notificacion con instrucciones (RF-12)
+# Esperado: 200 con data.estado "Pagado", data.verificadoPor, data.fechaRevision,
+# data.historial[1] y solicitud.estado "Pagada". Se crea Notificacion con las instrucciones
+# del Examen (cantidad, envase, temperatura, tiempo maximo de traslado).
+# Luego POST /muestras con esa solicitud -> 201 (RF-09).
+PUT {{base}}/pagos/<id_pago>/verificar
+Authorization: Bearer {{token_admin}}
+Content-Type: application/json
+
+{
+  "aprobar": true
+}
+
+### 46b. Rechazar pago -> 200: notificacion con el motivo (RF-09/RF-33)
+# La solicitud NO cambia; data.historial queda con el rechazo y su observacion.
+PUT {{base}}/pagos/<id_pago>/verificar
+Authorization: Bearer {{token_admin}}
+Content-Type: application/json
+
+{
+  "aprobar": false,
+  "observacion": "El valor reportado no coincide con el valor del cupón"
+}
+
+### 46c. Verificar un pago de un cupón con la solicitud YA Pagada -> 200
+# Se omite el salto de estado de la solicitud (no se re-emitia la transicion).
+

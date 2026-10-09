@@ -1,0 +1,651 @@
+-- =============================================================
+-- MySQL Script CORREGIDO según el diseño de la base de datos
+-- Sistema de gestión del laboratorio
+-- Fecha: 07/10/2026
+-- Convenciones:
+--   * Todos los campos `ID` son INT AUTO_INCREMENT (PK).
+--   * (UQ) = campo UNIQUE.
+--   * NOT NULL = obligatorio, NULL = opcional.
+--   * Las relaciones 1:1 se modelan con FK marcada UNIQUE.
+-- =============================================================
+
+SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0;
+SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0;
+SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION';
+
+-- -----------------------------------------------------
+-- Schema mydb
+-- -----------------------------------------------------
+DROP SCHEMA IF EXISTS `mydb` ;
+
+CREATE SCHEMA IF NOT EXISTS `mydb` DEFAULT CHARACTER SET utf8mb4 ;
+USE `mydb` ;
+
+-- =============================================================
+-- USUARIOS
+-- =============================================================
+
+-- -----------------------------------------------------
+-- Table `ROL`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `ROL` ;
+
+CREATE TABLE `ROL` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `NOMBRE` VARCHAR(50) NOT NULL,
+  `DESCRIPCION` VARCHAR(255) NULL,
+  `ESTADO` ENUM('Activo', 'Inactivo') NOT NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `UQ_ROL_NOMBRE` (`NOMBRE`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `MODULO`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `MODULO` ;
+
+CREATE TABLE `MODULO` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `NOMBRE` VARCHAR(100) NOT NULL,
+  `RUTA` VARCHAR(255) NOT NULL,
+  `ESTADO` ENUM('Activo', 'Inactivo') NOT NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `UQ_MODULO_NOMBRE` (`NOMBRE`),
+  UNIQUE KEY `UQ_MODULO_RUTA` (`RUTA`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `ROL_MODULO` (intermedia: ROL N:M MODULO)
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `ROL_MODULO` ;
+
+CREATE TABLE `ROL_MODULO` (
+  `ROL_ID` INT NOT NULL,
+  `MODULO_ID` INT NOT NULL,
+  PRIMARY KEY (`ROL_ID`, `MODULO_ID`),
+  CONSTRAINT `FK_ROL_MODULO_ROL`
+    FOREIGN KEY (`ROL_ID`) REFERENCES `ROL` (`ID`),
+  CONSTRAINT `FK_ROL_MODULO_MODULO`
+    FOREIGN KEY (`MODULO_ID`) REFERENCES `MODULO` (`ID`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `TIPOLOGIA_CLIENTE`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `TIPOLOGIA_CLIENTE` ;
+
+CREATE TABLE `TIPOLOGIA_CLIENTE` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `NOMBRE` VARCHAR(100) NOT NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `UQ_TIPOLOGIA_CLIENTE_NOMBRE` (`NOMBRE`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `USUARIO`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `USUARIO` ;
+
+CREATE TABLE `USUARIO` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `ROL_ID` INT NOT NULL,
+  `TIPOLOGIA_ID` INT NULL,
+  `NOMBRES` VARCHAR(100) NOT NULL,
+  `APELLIDOS` VARCHAR(100) NOT NULL,
+  `TIPO_DOCUMENTO` ENUM('CC', 'TI', 'CE') NOT NULL,
+  `NUMERO_DOCUMENTO` VARCHAR(20) NOT NULL,
+  `CORREO` VARCHAR(150) NOT NULL,
+  `TELEFONO` VARCHAR(20) NOT NULL,
+  `CONTRASENA_HASH` VARCHAR(255) NOT NULL,
+  `TIPO_USUARIO` ENUM('SENA', 'EXTERNO') NOT NULL,
+  `ACTIVO` BOOLEAN NOT NULL,
+  `FECHA_REGISTRO` DATETIME NOT NULL,
+  `TOKEN_RECUPERACION` VARCHAR(255) NULL,
+  `TOKEN_EXPIRACION` DATETIME NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `UQ_USUARIO_CORREO` (`CORREO`),
+  CONSTRAINT `FK_USUARIO_ROL`
+    FOREIGN KEY (`ROL_ID`) REFERENCES `ROL` (`ID`),
+  CONSTRAINT `FK_USUARIO_TIPOLOGIA`
+    FOREIGN KEY (`TIPOLOGIA_ID`) REFERENCES `TIPOLOGIA_CLIENTE` (`ID`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `VERIFICACION_SENA`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `VERIFICACION_SENA` ;
+
+CREATE TABLE `VERIFICACION_SENA` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `USUARIO_ID` INT NOT NULL,
+  `CORREO_INSTITUCIONAL` VARCHAR(150) NOT NULL,
+  `NUMERO_FICHA` VARCHAR(20) NULL,
+  `NUMERO_CONTRATO_CEDULA` VARCHAR(30) NULL,
+  `ARCHIVO_SOPORTE` VARCHAR(255) NOT NULL,
+  `ESTADO` ENUM('Pendiente', 'Aprobada', 'Rechazada') NOT NULL,
+  `FECHA_SOLICITUD` DATETIME NOT NULL,
+  `REVISADO_POR` INT NULL,
+  `FECHA_REVISION` DATETIME NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `UQ_VERIFICACION_SENA_USUARIO` (`USUARIO_ID`),
+  CONSTRAINT `FK_VERIFICACION_SENA_USUARIO`
+    FOREIGN KEY (`USUARIO_ID`) REFERENCES `USUARIO` (`ID`),
+  CONSTRAINT `FK_VERIFICACION_SENA_REVISADO`
+    FOREIGN KEY (`REVISADO_POR`) REFERENCES `USUARIO` (`ID`))
+ENGINE = InnoDB;
+
+-- =============================================================
+-- CATÁLOGO
+-- =============================================================
+
+-- -----------------------------------------------------
+-- Table `CATEGORIA_ANALISIS`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `CATEGORIA_ANALISIS` ;
+
+CREATE TABLE `CATEGORIA_ANALISIS` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `NOMBRE` VARCHAR(100) NOT NULL,
+  `DESCRIPCION` VARCHAR(255) NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `UQ_CATEGORIA_ANALISIS_NOMBRE` (`NOMBRE`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `TIPO_MUESTRA`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `TIPO_MUESTRA` ;
+
+CREATE TABLE `TIPO_MUESTRA` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `NOMBRE` VARCHAR(50) NOT NULL,
+  `DESCRIPCION` VARCHAR(255) NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `UQ_TIPO_MUESTRA_NOMBRE` (`NOMBRE`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `EXAMEN`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `EXAMEN` ;
+
+CREATE TABLE `EXAMEN` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `CATEGORIA_ID` INT NOT NULL,
+  `TIPO_MUESTRA_ID` INT NOT NULL,
+  `NOMBRE` VARCHAR(150) NOT NULL,
+  `DESCRIPCION` TEXT NULL,
+  `PRECIO` DECIMAL(12,2) NOT NULL,
+  `TIEMPO_RESPUESTA_DIAS` INT NOT NULL,
+  `CANTIDAD_REQUERIDA` DECIMAL(10,2) NOT NULL,
+  `UNIDAD_MEDIDA` VARCHAR(10) NOT NULL,
+  `TIPO_ENVASE` VARCHAR(100) NOT NULL,
+  `TEMPERATURA_CONSERVACION` VARCHAR(50) NULL,
+  `TIEMPO_MAX_TRASLADO_HORAS` INT NULL,
+  `REQUIERE_TEMPERATURA` BOOLEAN NOT NULL,
+  `ACTIVO` BOOLEAN NOT NULL,
+  PRIMARY KEY (`ID`),
+  CONSTRAINT `FK_EXAMEN_CATEGORIA`
+    FOREIGN KEY (`CATEGORIA_ID`) REFERENCES `CATEGORIA_ANALISIS` (`ID`),
+  CONSTRAINT `FK_EXAMEN_TIPO_MUESTRA`
+    FOREIGN KEY (`TIPO_MUESTRA_ID`) REFERENCES `TIPO_MUESTRA` (`ID`))
+ENGINE = InnoDB;
+
+-- =============================================================
+-- SOLICITUD Y COTIZACIÓN
+-- =============================================================
+
+-- -----------------------------------------------------
+-- Table `SOLICITUD`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `SOLICITUD` ;
+
+CREATE TABLE `SOLICITUD` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `USUARIO_ID` INT NOT NULL,
+  `TIPO_MUESTRA_ID` INT NOT NULL,
+  `CODIGO_PRESOLICITUD` VARCHAR(20) NOT NULL,
+  `DESCRIPCION_MUESTRA` VARCHAR(255) NOT NULL,
+  `ORIGEN` ENUM('Rural', 'Industrial', 'Doméstico') NOT NULL,
+  `CANTIDAD_ESTIMADA` VARCHAR(50) NOT NULL,
+  `ESTADO` ENUM('Pre-solicitud', 'Cotizada', 'No aceptada', 'Pendiente de pago', 'Pagada', 'En proceso', 'Finalizada', 'Cancelada') NOT NULL,
+  `FECHA_CREACION` DATETIME NOT NULL,
+  `FECHA_CIERRE` DATETIME NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `UQ_SOLICITUD_CODIGO` (`CODIGO_PRESOLICITUD`),
+  CONSTRAINT `FK_SOLICITUD_USUARIO`
+    FOREIGN KEY (`USUARIO_ID`) REFERENCES `USUARIO` (`ID`),
+  CONSTRAINT `FK_SOLICITUD_TIPO_MUESTRA`
+    FOREIGN KEY (`TIPO_MUESTRA_ID`) REFERENCES `TIPO_MUESTRA` (`ID`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `AUTORIZACION`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `AUTORIZACION` ;
+
+CREATE TABLE `AUTORIZACION` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `SOLICITUD_ID` INT NOT NULL,
+  `NOMBRE_FIRMANTE` VARCHAR(150) NOT NULL,
+  `DOCUMENTO_FIRMANTE` VARCHAR(20) NOT NULL,
+  `FIRMA_IMAGEN` VARCHAR(255) NOT NULL,
+  `ACEPTA_TERMINOS` BOOLEAN NOT NULL,
+  `FECHA_HORA_FIRMA` DATETIME NOT NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `UQ_AUTORIZACION_SOLICITUD` (`SOLICITUD_ID`),
+  CONSTRAINT `FK_AUTORIZACION_SOLICITUD`
+    FOREIGN KEY (`SOLICITUD_ID`) REFERENCES `SOLICITUD` (`ID`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `COTIZACION`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `COTIZACION` ;
+
+CREATE TABLE `COTIZACION` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `SOLICITUD_ID` INT NOT NULL,
+  `NUMERO_COTIZACION` VARCHAR(20) NOT NULL,
+  `FECHA_EMISION` DATETIME NOT NULL,
+  `VALOR_TOTAL` DECIMAL(12,2) NOT NULL,
+  `EXONERADA` BOOLEAN NOT NULL,
+  `ESTADO` ENUM('Enviada', 'Aceptada', 'No aceptada') NOT NULL,
+  `ARCHIVO_PDF` VARCHAR(255) NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `UQ_COTIZACION_NUMERO` (`NUMERO_COTIZACION`),
+  CONSTRAINT `FK_COTIZACION_SOLICITUD`
+    FOREIGN KEY (`SOLICITUD_ID`) REFERENCES `SOLICITUD` (`ID`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `DETALLE_COTIZACION` (intermedia: COTIZACION N:M EXAMEN)
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `DETALLE_COTIZACION` ;
+
+CREATE TABLE `DETALLE_COTIZACION` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `COTIZACION_ID` INT NOT NULL,
+  `EXAMEN_ID` INT NOT NULL,
+  `CANTIDAD_MUESTRAS` INT NOT NULL,
+  `PRECIO_UNITARIO` DECIMAL(12,2) NOT NULL,
+  PRIMARY KEY (`ID`),
+  CONSTRAINT `FK_DETALLE_COTIZACION_COTIZACION`
+    FOREIGN KEY (`COTIZACION_ID`) REFERENCES `COTIZACION` (`ID`),
+  CONSTRAINT `FK_DETALLE_COTIZACION_EXAMEN`
+    FOREIGN KEY (`EXAMEN_ID`) REFERENCES `EXAMEN` (`ID`))
+ENGINE = InnoDB;
+
+-- =============================================================
+-- PAGO
+-- =============================================================
+
+-- -----------------------------------------------------
+-- Table `CUENTA_RECAUDO`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `CUENTA_RECAUDO` ;
+
+CREATE TABLE `CUENTA_RECAUDO` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `BANCO` VARCHAR(100) NOT NULL,
+  `TIPO_CUENTA` ENUM('Ahorros', 'Corriente') NOT NULL,
+  `NUMERO_CUENTA` VARCHAR(30) NOT NULL,
+  `TITULAR` VARCHAR(150) NOT NULL,
+  `ACTIVA` BOOLEAN NOT NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `UQ_CUENTA_RECAUDO_NUMERO` (`NUMERO_CUENTA`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `CUPON_PAGO`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `CUPON_PAGO` ;
+
+CREATE TABLE `CUPON_PAGO` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `COTIZACION_ID` INT NOT NULL,
+  `CODIGO_REFERENCIA` VARCHAR(30) NOT NULL,
+  `FECHA_EMISION` DATETIME NOT NULL,
+  `FECHA_LIMITE_PAGO` DATE NOT NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `UQ_CUPON_PAGO_COTIZACION` (`COTIZACION_ID`),
+  UNIQUE KEY `UQ_CUPON_PAGO_CODIGO` (`CODIGO_REFERENCIA`),
+  CONSTRAINT `FK_CUPON_PAGO_COTIZACION`
+    FOREIGN KEY (`COTIZACION_ID`) REFERENCES `COTIZACION` (`ID`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `CUPON_CUENTA` (intermedia: CUPON_PAGO N:M CUENTA_RECAUDO)
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `CUPON_CUENTA` ;
+
+CREATE TABLE `CUPON_CUENTA` (
+  `CUPON_ID` INT NOT NULL,
+  `CUENTA_ID` INT NOT NULL,
+  PRIMARY KEY (`CUPON_ID`, `CUENTA_ID`),
+  CONSTRAINT `FK_CUPON_CUENTA_CUPON`
+    FOREIGN KEY (`CUPON_ID`) REFERENCES `CUPON_PAGO` (`ID`),
+  CONSTRAINT `FK_CUPON_CUENTA_CUENTA`
+    FOREIGN KEY (`CUENTA_ID`) REFERENCES `CUENTA_RECAUDO` (`ID`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `PAGO`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `PAGO` ;
+
+CREATE TABLE `PAGO` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `CUPON_ID` INT NOT NULL,
+  `VERIFICADO_POR` INT NULL,
+  `METODO` ENUM('Consignación bancaria', 'Transferencia electrónica', 'Efectivo en caja SENA') NOT NULL,
+  `ARCHIVO_COMPROBANTE` VARCHAR(255) NULL,
+  `NUMERO_RECIBO_CAJA` VARCHAR(50) NULL,
+  `FECHA_PAGO_REPORTADA` DATE NOT NULL,
+  `VALOR_REPORTADO` DECIMAL(12,2) NOT NULL,
+  `ESTADO` ENUM('Pendiente de verificación', 'Pagado', 'Rechazado') NOT NULL,
+  `FECHA_CARGA` DATETIME NOT NULL,
+  `FECHA_REVISION` DATETIME NULL,
+  `OBSERVACION` TEXT NULL,
+  PRIMARY KEY (`ID`),
+  CONSTRAINT `FK_PAGO_CUPON`
+    FOREIGN KEY (`CUPON_ID`) REFERENCES `CUPON_PAGO` (`ID`),
+  CONSTRAINT `FK_PAGO_VERIFICADO`
+    FOREIGN KEY (`VERIFICADO_POR`) REFERENCES `USUARIO` (`ID`))
+ENGINE = InnoDB;
+
+-- =============================================================
+-- MUESTRAS
+-- =============================================================
+
+-- -----------------------------------------------------
+-- Table `MUESTRA`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `MUESTRA` ;
+
+CREATE TABLE `MUESTRA` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `SOLICITUD_ID` INT NOT NULL,
+  `RECEPCIONISTA_ID` INT NOT NULL,
+  `ANALISTA_ID` INT NULL,
+  `ENTREGADO_POR` VARCHAR(150) NOT NULL,
+  `FECHA_HORA_ENTREGA` DATETIME NOT NULL,
+  `CANTIDAD_RECIBIDA` DECIMAL(10,2) NOT NULL,
+  `UNIDAD_MEDIDA` VARCHAR(10) NOT NULL,
+  `ESTADO_EMPAQUE` ENUM('Buen estado', 'Malas condiciones') NOT NULL,
+  `TEMPERATURA_RECEPCION` DECIMAL(5,2) NULL,
+  `CODIGO_MUESTRA` VARCHAR(20) NULL,
+  `PRIORIDAD` ENUM('A1', 'A2') NULL,
+  `NUMERO_TURNO` INT NULL,
+  `ESTADO` ENUM('Recibida', 'Aceptada', 'En observación', 'Rechazada') NOT NULL,
+  `ETAPA_ACTUAL` ENUM('Recepción', 'Análisis', 'Observaciones', 'Resultados', 'Validación', 'Re-ensayo', 'Finalizada') NULL,
+  `OBSERVACIONES` TEXT NULL,
+  `FECHA_INGRESO` DATETIME NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `UQ_MUESTRA_CODIGO` (`CODIGO_MUESTRA`),
+  CONSTRAINT `FK_MUESTRA_SOLICITUD`
+    FOREIGN KEY (`SOLICITUD_ID`) REFERENCES `SOLICITUD` (`ID`),
+  CONSTRAINT `FK_MUESTRA_RECEPCIONISTA`
+    FOREIGN KEY (`RECEPCIONISTA_ID`) REFERENCES `USUARIO` (`ID`),
+  CONSTRAINT `FK_MUESTRA_ANALISTA`
+    FOREIGN KEY (`ANALISTA_ID`) REFERENCES `USUARIO` (`ID`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `MUESTRA_EXAMEN` (intermedia: MUESTRA N:M EXAMEN)
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `MUESTRA_EXAMEN` ;
+
+CREATE TABLE `MUESTRA_EXAMEN` (
+  `MUESTRA_ID` INT NOT NULL,
+  `EXAMEN_ID` INT NOT NULL,
+  `RESULTADO` TEXT NULL,
+  `FECHA_RESULTADO` DATETIME NULL,
+  PRIMARY KEY (`MUESTRA_ID`, `EXAMEN_ID`),
+  CONSTRAINT `FK_MUESTRA_EXAMEN_MUESTRA`
+    FOREIGN KEY (`MUESTRA_ID`) REFERENCES `MUESTRA` (`ID`),
+  CONSTRAINT `FK_MUESTRA_EXAMEN_EXAMEN`
+    FOREIGN KEY (`EXAMEN_ID`) REFERENCES `EXAMEN` (`ID`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `MOTIVO_RECHAZO`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `MOTIVO_RECHAZO` ;
+
+CREATE TABLE `MOTIVO_RECHAZO` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `NOMBRE` VARCHAR(100) NOT NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `UQ_MOTIVO_RECHAZO_NOMBRE` (`NOMBRE`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `RECHAZO`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `RECHAZO` ;
+
+CREATE TABLE `RECHAZO` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `MUESTRA_ID` INT NOT NULL,
+  `MOTIVO_ID` INT NOT NULL,
+  `REGISTRADO_POR` INT NOT NULL,
+  `OBSERVACIONES` TEXT NULL,
+  `EVIDENCIA_FOTO` VARCHAR(255) NULL,
+  `ACTA_PDF` VARCHAR(255) NOT NULL,
+  `FECHA_RECHAZO` DATETIME NOT NULL,
+  `DECISION_CLIENTE` ENUM('Pendiente', 'Reenviar', 'Recoger') NOT NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `UQ_RECHAZO_MUESTRA` (`MUESTRA_ID`),
+  CONSTRAINT `FK_RECHAZO_MUESTRA`
+    FOREIGN KEY (`MUESTRA_ID`) REFERENCES `MUESTRA` (`ID`),
+  CONSTRAINT `FK_RECHAZO_MOTIVO`
+    FOREIGN KEY (`MOTIVO_ID`) REFERENCES `MOTIVO_RECHAZO` (`ID`),
+  CONSTRAINT `FK_RECHAZO_REGISTRADO`
+    FOREIGN KEY (`REGISTRADO_POR`) REFERENCES `USUARIO` (`ID`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `HISTORIAL_MUESTRA`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `HISTORIAL_MUESTRA` ;
+
+CREATE TABLE `HISTORIAL_MUESTRA` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `MUESTRA_ID` INT NOT NULL,
+  `USUARIO_ID` INT NOT NULL,
+  `ACCION` ENUM('Cambio de etapa', 'Edición', 'Asignación', 'Reasignación', 'Reapertura', 'Consulta datos cliente') NOT NULL,
+  `ETAPA` ENUM('Recepción', 'Análisis', 'Observaciones', 'Resultados', 'Validación', 'Re-ensayo', 'Finalizada') NULL,
+  `VALOR_ANTERIOR` VARCHAR(255) NULL,
+  `VALOR_NUEVO` VARCHAR(255) NULL,
+  `COMENTARIO` TEXT NULL,
+  `FECHA_HORA` DATETIME NOT NULL,
+  PRIMARY KEY (`ID`),
+  CONSTRAINT `FK_HISTORIAL_MUESTRA_MUESTRA`
+    FOREIGN KEY (`MUESTRA_ID`) REFERENCES `MUESTRA` (`ID`),
+  CONSTRAINT `FK_HISTORIAL_MUESTRA_USUARIO`
+    FOREIGN KEY (`USUARIO_ID`) REFERENCES `USUARIO` (`ID`))
+ENGINE = InnoDB;
+
+-- =============================================================
+-- ENTREGABLES
+-- =============================================================
+
+-- -----------------------------------------------------
+-- Table `INFORME`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `INFORME` ;
+
+CREATE TABLE `INFORME` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `MUESTRA_ID` INT NOT NULL,
+  `REVISADO_POR` INT NULL,
+  `ARCHIVO_PDF` VARCHAR(255) NOT NULL,
+  `ESTADO` ENUM('En revisión', 'Aprobado') NOT NULL,
+  `FECHA_VALIDACION` DATETIME NULL,
+  `FECHA_ENVIO` DATETIME NULL,
+  PRIMARY KEY (`ID`),
+  CONSTRAINT `FK_INFORME_MUESTRA`
+    FOREIGN KEY (`MUESTRA_ID`) REFERENCES `MUESTRA` (`ID`),
+  CONSTRAINT `FK_INFORME_REVISADO`
+    FOREIGN KEY (`REVISADO_POR`) REFERENCES `USUARIO` (`ID`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `PREGUNTA_ENCUESTA`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `PREGUNTA_ENCUESTA` ;
+
+CREATE TABLE `PREGUNTA_ENCUESTA` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `TEXTO` VARCHAR(255) NOT NULL,
+  `TIPO` ENUM('Calificación', 'Opción múltiple', 'Sí/No', 'Texto abierto') NOT NULL,
+  `ACTIVA` BOOLEAN NOT NULL,
+  PRIMARY KEY (`ID`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `ENCUESTA`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `ENCUESTA` ;
+
+CREATE TABLE `ENCUESTA` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `SOLICITUD_ID` INT NOT NULL,
+  `COMENTARIO` VARCHAR(255) NULL,
+  `FECHA_RESPUESTA` DATETIME NOT NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `UQ_ENCUESTA_SOLICITUD` (`SOLICITUD_ID`),
+  CONSTRAINT `FK_ENCUESTA_SOLICITUD`
+    FOREIGN KEY (`SOLICITUD_ID`) REFERENCES `SOLICITUD` (`ID`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `RESPUESTA_ENCUESTA` (intermedia: ENCUESTA N:M PREGUNTA_ENCUESTA)
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `RESPUESTA_ENCUESTA` ;
+
+CREATE TABLE `RESPUESTA_ENCUESTA` (
+  `ENCUESTA_ID` INT NOT NULL,
+  `PREGUNTA_ID` INT NOT NULL,
+  `CALIFICACION` TINYINT NOT NULL,
+  PRIMARY KEY (`ENCUESTA_ID`, `PREGUNTA_ID`),
+  CONSTRAINT `FK_RESPUESTA_ENCUESTA_ENCUESTA`
+    FOREIGN KEY (`ENCUESTA_ID`) REFERENCES `ENCUESTA` (`ID`),
+  CONSTRAINT `FK_RESPUESTA_ENCUESTA_PREGUNTA`
+    FOREIGN KEY (`PREGUNTA_ID`) REFERENCES `PREGUNTA_ENCUESTA` (`ID`))
+ENGINE = InnoDB;
+
+-- =============================================================
+-- COMUNICACIÓN Y CONFIGURACIÓN
+-- =============================================================
+
+-- -----------------------------------------------------
+-- Table `PLANTILLA_MENSAJE`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `PLANTILLA_MENSAJE` ;
+
+CREATE TABLE `PLANTILLA_MENSAJE` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `MODIFICADO_POR` INT NULL,
+  `NOMBRE` VARCHAR(100) NOT NULL,
+  `TIPO` ENUM('Notificación', 'Alerta de Retraso', 'Resultados') NOT NULL,
+  `CANAL` ENUM('Correo', 'Chat interno') NOT NULL,
+  `ASUNTO` VARCHAR(200) NOT NULL,
+  `CUERPO` TEXT NOT NULL,
+  `FECHA_MODIFICACION` DATETIME NULL,
+  PRIMARY KEY (`ID`),
+  CONSTRAINT `FK_PLANTILLA_MENSAJE_MODIFICADO`
+    FOREIGN KEY (`MODIFICADO_POR`) REFERENCES `USUARIO` (`ID`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `NOTIFICACION`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `NOTIFICACION` ;
+
+CREATE TABLE `NOTIFICACION` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `USUARIO_ID` INT NOT NULL,
+  `PLANTILLA_ID` INT NULL,
+  `SOLICITUD_ID` INT NULL,
+  `CANAL` ENUM('Correo', 'App') NOT NULL,
+  `ASUNTO` VARCHAR(200) NOT NULL,
+  `CONTENIDO` TEXT NOT NULL,
+  `FECHA_ENVIO` DATETIME NOT NULL,
+  `LEIDA` BOOLEAN NOT NULL,
+  PRIMARY KEY (`ID`),
+  CONSTRAINT `FK_NOTIFICACION_USUARIO`
+    FOREIGN KEY (`USUARIO_ID`) REFERENCES `USUARIO` (`ID`),
+  CONSTRAINT `FK_NOTIFICACION_PLANTILLA`
+    FOREIGN KEY (`PLANTILLA_ID`) REFERENCES `PLANTILLA_MENSAJE` (`ID`),
+  CONSTRAINT `FK_NOTIFICACION_SOLICITUD`
+    FOREIGN KEY (`SOLICITUD_ID`) REFERENCES `SOLICITUD` (`ID`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `OPCION_ASISTENTE_IA`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `OPCION_ASISTENTE_IA` ;
+
+CREATE TABLE `OPCION_ASISTENTE_IA` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `MODIFICADO_POR` INT NULL,
+  `NUMERO_OPCION` INT NOT NULL,
+  `TEXTO_OPCION` VARCHAR(200) NOT NULL,
+  `PROMPT` TEXT NOT NULL,
+  `ACTIVA` BOOLEAN NOT NULL,
+  `FECHA_MODIFICACION` DATETIME NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `UQ_OPCION_ASISTENTE_IA_NUMERO` (`NUMERO_OPCION`),
+  CONSTRAINT `FK_OPCION_ASISTENTE_IA_MODIFICADO`
+    FOREIGN KEY (`MODIFICADO_POR`) REFERENCES `USUARIO` (`ID`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `PARAMETRO_SISTEMA`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `PARAMETRO_SISTEMA` ;
+
+CREATE TABLE `PARAMETRO_SISTEMA` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `MODIFICADO_POR` INT NULL,
+  `CLAVE` VARCHAR(100) NOT NULL,
+  `VALOR` VARCHAR(255) NOT NULL,
+  `DESCRIPCION` VARCHAR(255) NULL,
+  `FECHA_MODIFICACION` DATETIME NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `UQ_PARAMETRO_SISTEMA_CLAVE` (`CLAVE`),
+  CONSTRAINT `FK_PARAMETRO_SISTEMA_MODIFICADO`
+    FOREIGN KEY (`MODIFICADO_POR`) REFERENCES `USUARIO` (`ID`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `INCONFORMIDAD`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `INCONFORMIDAD` ;
+
+CREATE TABLE `INCONFORMIDAD` (
+  `ID` INT NOT NULL AUTO_INCREMENT,
+  `USUARIO_ID` INT NOT NULL,
+  `SOLICITUD_ID` INT NULL,
+  `TIPO` ENUM('Petición', 'Queja', 'Reclamo') NOT NULL,
+  `CATEGORIA` VARCHAR(100) NULL,
+  `DESCRIPCION` TEXT NOT NULL,
+  `SOPORTE` VARCHAR(255) NULL,
+  `ESTADO` ENUM('Abierta', 'En revisión', 'Resuelta', 'Cerrada') NOT NULL,
+  `FECHA_REGISTRO` DATETIME NOT NULL,
+  `FECHA_RESOLUCION` DATETIME NULL,
+  PRIMARY KEY (`ID`),
+  CONSTRAINT `FK_INCONFORMIDAD_USUARIO`
+    FOREIGN KEY (`USUARIO_ID`) REFERENCES `USUARIO` (`ID`),
+  CONSTRAINT `FK_INCONFORMIDAD_SOLICITUD`
+    FOREIGN KEY (`SOLICITUD_ID`) REFERENCES `SOLICITUD` (`ID`))
+ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Fin
+-- -----------------------------------------------------
+SET SQL_MODE=@OLD_SQL_MODE;
+SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
+SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;
